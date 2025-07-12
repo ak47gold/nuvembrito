@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react"
 import WordCloud from "wordcloud"
-import sample from '/videos/bg.mp4';
 
 const availableWords = [
   ["Foguete", 0],
@@ -172,7 +171,17 @@ function WordCard({ word, count, onAdd, onRemove }) {
   )
 }
 
-function CollapsibleWordBox({ words, onAdd, onRemove, position, onPositionChange, title, onDragStart, onDragEnd }) {
+function CollapsibleWordBox({
+  words,
+  onAdd,
+  onRemove,
+  position,
+  onPositionChange,
+  title,
+  onDragStart,
+  onDragEnd,
+  rotation = 0,
+}) {
   const [isDragging, setIsDragging] = useState(false)
   const [isCollapsed, setIsCollapsed] = useState(true)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
@@ -248,7 +257,7 @@ function CollapsibleWordBox({ words, onAdd, onRemove, position, onPositionChange
         cursor: isDragging ? "grabbing" : "grab",
         backdropFilter: "blur(20px)",
         transition: isDragging ? "none" : "all 0.4s cubic-bezier(0.4, 0, 0.2, 1)",
-        transform: isDragging ? "scale(1.05)" : "scale(1)",
+        transform: isDragging ? `rotate(${rotation}deg) scale(1.05)` : `rotate(${rotation}deg) scale(1)`,
         boxShadow: isDragging
           ? "0 20px 60px rgba(0,255,200,0.2), 0 0 40px rgba(0,255,200,0.1)"
           : "0 10px 30px rgba(0,0,0,0.3), 0 0 20px rgba(255,255,255,0.05)",
@@ -320,15 +329,13 @@ function CollapsibleWordBox({ words, onAdd, onRemove, position, onPositionChange
 
 export default function App() {
   const canvasRef = useRef(null)
-  const videoRef = useRef(null)
   const [words, setWords] = useState(availableWords)
   const [isAnyBoxDragging, setIsAnyBoxDragging] = useState(false)
   const [lastWordCloudData, setLastWordCloudData] = useState("")
-  const [videoLoaded, setVideoLoaded] = useState(false)
 
   // Posições das 4 caixas
-  const [topBoxPos, setTopBoxPos] = useState({ x: 1200, y: 20 })
-  const [bottomBoxPos, setBottomBoxPos] = useState({ x: 1200, y: window.innerHeight - 80 })
+  const [topBoxPos, setTopBoxPos] = useState({ x: 920, y: 20 })
+  const [bottomBoxPos, setBottomBoxPos] = useState({ x: 920, y: window.innerHeight - 80 })
   const [leftBoxPos, setLeftBoxPos] = useState({ x: 220, y: 600 })
   const [rightBoxPos, setRightBoxPos] = useState({ x: window.innerWidth - 380, y: 600 })
 
@@ -387,8 +394,8 @@ export default function App() {
 
   return (
     <>
-      {/* CSS Global */}
-      <style
+      {/* CSS Global com animações */}
+      {/* <style
         dangerouslySetInnerHTML={{
           __html: `
           @keyframes float {
@@ -396,13 +403,42 @@ export default function App() {
             50% { transform: translate(-50%, -50%) translateY(-10px); }
           }
           
-          @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+          @keyframes moveParticles {
+            0% { transform: translateY(100vh) translateX(-10px); }
+            100% { transform: translateY(-100px) translateX(10px); }
           }
+          
+          @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+          }
+          
+          @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+          }
+          
+          .particle {
+            position: absolute;
+            background: radial-gradient(circle, rgba(0,255,136,0.6), transparent);
+            border-radius: 50%;
+            animation: moveParticles linear infinite;
+            pointer-events: none;
+          }
+          
+          .particle:nth-child(1) { left: 10%; animation-duration: 15s; animation-delay: 0s; width: 4px; height: 4px; }
+          .particle:nth-child(2) { left: 20%; animation-duration: 12s; animation-delay: 2s; width: 6px; height: 6px; }
+          .particle:nth-child(3) { left: 30%; animation-duration: 18s; animation-delay: 4s; width: 3px; height: 3px; }
+          .particle:nth-child(4) { left: 40%; animation-duration: 14s; animation-delay: 1s; width: 5px; height: 5px; }
+          .particle:nth-child(5) { left: 50%; animation-duration: 16s; animation-delay: 3s; width: 4px; height: 4px; }
+          .particle:nth-child(6) { left: 60%; animation-duration: 13s; animation-delay: 5s; width: 7px; height: 7px; }
+          .particle:nth-child(7) { left: 70%; animation-duration: 17s; animation-delay: 2s; width: 3px; height: 3px; }
+          .particle:nth-child(8) { left: 80%; animation-duration: 15s; animation-delay: 4s; width: 5px; height: 5px; }
+          .particle:nth-child(9) { left: 90%; animation-duration: 19s; animation-delay: 1s; width: 4px; height: 4px; }
+          .particle:nth-child(10) { left: 25%; animation-duration: 11s; animation-delay: 6s; width: 6px; height: 6px; }
         `,
         }}
-      />
+      /> */}
 
       <div
         style={{
@@ -410,39 +446,49 @@ export default function App() {
           minHeight: "100vh",
           width: "100vw",
           overflow: "hidden",
-          background: "linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #0a0a0a 100%)",
+          background: `
+            linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 25%, #16213e 50%, #0f3460 75%, #0a0a0a 100%),
+            radial-gradient(circle at 20% 80%, rgba(0,255,136,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(0,204,255,0.1) 0%, transparent 50%),
+            radial-gradient(circle at 40% 40%, rgba(255,107,107,0.05) 0%, transparent 50%)
+          `,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        {/* Vídeo de fundo */}
-        
-
-        <video
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            objectFit: "cover",
-            zIndex: 1,
-            pointerEvents: "none",
-            opacity: videoLoaded ? 0.5 : 1,
-            transition: "opacity 1s ease-in-out",
-          }}
-          autoPlay loop muted>
-            <source src={sample} type='video/mp4' />
-        </video>
-
-        {/* Overlay sutil para melhorar legibilidade */}
+        {/* Partículas animadas de fundo */}
         <div
           style={{
             position: "absolute",
             inset: 0,
-            background: "rgba(0,0,0,0.4)",
-            zIndex: 2,
+            overflow: "hidden",
+            zIndex: 0,
+          }}
+        >
+          {[...Array(10)].map((_, i) => (
+            <div key={i} className="particle" />
+          ))}
+        </div>
+
+        {/* Efeitos de luz rotativa */}
+        <div
+          style={{
+            position: "absolute",
+            inset: 0,
+            background: `
+              conic-gradient(from 0deg at 50% 50%, 
+                transparent 0deg, 
+                rgba(0,255,136,0.03) 60deg, 
+                transparent 120deg, 
+                rgba(0,204,255,0.03) 180deg, 
+                transparent 240deg, 
+                rgba(255,107,107,0.02) 300deg, 
+                transparent 360deg
+              )
+            `,
+            animation: "rotate 60s linear infinite",
+            zIndex: 1,
           }}
         />
 
@@ -480,6 +526,7 @@ export default function App() {
                   fontSize: "4rem",
                   marginBottom: "20px",
                   filter: "drop-shadow(0 0 20px rgba(0,255,136,0.5))",
+                  animation: "pulse 2s ease-in-out infinite",
                 }}
               >
                 ✨
@@ -517,6 +564,7 @@ export default function App() {
           position={topBoxPos}
           onPositionChange={setTopBoxPos}
           title="TOP"
+          rotation={180}
           onDragStart={() => setIsAnyBoxDragging(true)}
           onDragEnd={() => setIsAnyBoxDragging(false)}
         />
@@ -539,6 +587,7 @@ export default function App() {
           position={leftBoxPos}
           onPositionChange={setLeftBoxPos}
           title="LEFT"
+          rotation={90}
           onDragStart={() => setIsAnyBoxDragging(true)}
           onDragEnd={() => setIsAnyBoxDragging(false)}
         />
@@ -550,6 +599,7 @@ export default function App() {
           position={rightBoxPos}
           onPositionChange={setRightBoxPos}
           title="RIGHT"
+          rotation={-90}
           onDragStart={() => setIsAnyBoxDragging(true)}
           onDragEnd={() => setIsAnyBoxDragging(false)}
         />
