@@ -327,6 +327,76 @@ function CollapsibleWordBox({
   )
 }
 
+function LightParticles() {
+  const [particles, setParticles] = useState([])
+
+  useEffect(() => {
+    // Cria apenas 6 partículas bem leves
+    const newParticles = Array.from({ length: 16 }, (_, i) => ({
+      id: i,
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: (Math.random() - 0.5) * 0.5,
+      size: Math.random() * 3 + 1,
+      opacity: Math.random() * 0.3 + 0.1,
+    }))
+    setParticles(newParticles)
+
+    const interval = setInterval(() => {
+      setParticles((prev) =>
+        prev.map((particle) => {
+          const newX = particle.x + particle.vx
+          const newY = particle.y + particle.vy
+          let newVx = particle.vx
+          let newVy = particle.vy
+
+          // Bounce nas bordas
+          if (newX <= 0 || newX >= window.innerWidth) newVx *= -1
+          if (newY <= 0 || newY >= window.innerHeight) newVy *= -1
+
+          return {
+            ...particle,
+            x: newX,
+            y: newY,
+            vx: newVx,
+            vy: newVy,
+          }
+        }),
+      )
+    }, 50) // 20 FPS bem leve
+
+    return () => clearInterval(interval)
+  }, [])
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        pointerEvents: "none",
+        zIndex: 1,
+      }}
+    >
+      {particles.map((particle) => (
+        <div
+          key={particle.id}
+          style={{
+            position: "absolute",
+            left: particle.x,
+            top: particle.y,
+            width: particle.size,
+            height: particle.size,
+            borderRadius: "50%",
+            background: `rgba(0, 255, 136, ${particle.opacity})`,
+            boxShadow: `0 0 ${particle.size * 2}px rgba(0, 255, 136, ${particle.opacity * 0.5})`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 export default function App() {
   const canvasRef = useRef(null)
   const [words, setWords] = useState(availableWords)
@@ -369,7 +439,7 @@ export default function App() {
               const maxFontSize = 140
               return Math.min(base + Math.log2(size) * fator, maxFontSize)
             },
-            fontFamily: "Arial, sans-serif",
+            fontFamily: "Rawline, Arial, sans-serif", // SIM, Rawline está aqui!
             color: () => {
               const colors = ["#e8e8e8", "#d4d4d4", "#c0c0c0", "#f0f0f0", "#dcdcdc"]
               return colors[Math.floor(Math.random() * colors.length)]
@@ -395,7 +465,7 @@ export default function App() {
   return (
     <>
       {/* CSS Global com animações */}
-      {/* <style
+      <style
         dangerouslySetInnerHTML={{
           __html: `
           @keyframes float {
@@ -403,42 +473,13 @@ export default function App() {
             50% { transform: translate(-50%, -50%) translateY(-10px); }
           }
           
-          @keyframes moveParticles {
-            0% { transform: translateY(100vh) translateX(-10px); }
-            100% { transform: translateY(-100px) translateX(10px); }
-          }
-          
           @keyframes pulse {
-            0%, 100% { opacity: 0.3; }
+            0%, 100% { opacity: 0.4; }
             50% { opacity: 0.8; }
           }
-          
-          @keyframes rotate {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-          }
-          
-          .particle {
-            position: absolute;
-            background: radial-gradient(circle, rgba(0,255,136,0.6), transparent);
-            border-radius: 50%;
-            animation: moveParticles linear infinite;
-            pointer-events: none;
-          }
-          
-          .particle:nth-child(1) { left: 10%; animation-duration: 15s; animation-delay: 0s; width: 4px; height: 4px; }
-          .particle:nth-child(2) { left: 20%; animation-duration: 12s; animation-delay: 2s; width: 6px; height: 6px; }
-          .particle:nth-child(3) { left: 30%; animation-duration: 18s; animation-delay: 4s; width: 3px; height: 3px; }
-          .particle:nth-child(4) { left: 40%; animation-duration: 14s; animation-delay: 1s; width: 5px; height: 5px; }
-          .particle:nth-child(5) { left: 50%; animation-duration: 16s; animation-delay: 3s; width: 4px; height: 4px; }
-          .particle:nth-child(6) { left: 60%; animation-duration: 13s; animation-delay: 5s; width: 7px; height: 7px; }
-          .particle:nth-child(7) { left: 70%; animation-duration: 17s; animation-delay: 2s; width: 3px; height: 3px; }
-          .particle:nth-child(8) { left: 80%; animation-duration: 15s; animation-delay: 4s; width: 5px; height: 5px; }
-          .particle:nth-child(9) { left: 90%; animation-duration: 19s; animation-delay: 1s; width: 4px; height: 4px; }
-          .particle:nth-child(10) { left: 25%; animation-duration: 11s; animation-delay: 6s; width: 6px; height: 6px; }
         `,
         }}
-      /> */}
+      />
 
       <div
         style={{
@@ -457,40 +498,8 @@ export default function App() {
           justifyContent: "center",
         }}
       >
-        {/* Partículas animadas de fundo */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            overflow: "hidden",
-            zIndex: 0,
-          }}
-        >
-          {[...Array(10)].map((_, i) => (
-            <div key={i} className="particle" />
-          ))}
-        </div>
-
-        {/* Efeitos de luz rotativa */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            background: `
-              conic-gradient(from 0deg at 50% 50%, 
-                transparent 0deg, 
-                rgba(0,255,136,0.03) 60deg, 
-                transparent 120deg, 
-                rgba(0,204,255,0.03) 180deg, 
-                transparent 240deg, 
-                rgba(255,107,107,0.02) 300deg, 
-                transparent 360deg
-              )
-            `,
-            animation: "rotate 60s linear infinite",
-            zIndex: 1,
-          }}
-        />
+        {/* Partículas leves */}
+        <LightParticles />
 
         {/* Canvas central */}
         <div style={{ position: "relative", zIndex: 10 }}>
@@ -519,6 +528,7 @@ export default function App() {
                 pointerEvents: "none",
                 animation: "float 3s ease-in-out infinite",
                 textShadow: "0 4px 12px rgba(0,0,0,0.8)",
+                fontFamily: "Rawline, Arial, sans-serif",
               }}
             >
               <div
