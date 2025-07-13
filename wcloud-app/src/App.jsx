@@ -499,13 +499,13 @@ export default function App() {
       const newWords = prev.map(([w, v]) => (w === word ? [w, v + 1] : [w, v]))
       const wordData = newWords.find(([w]) => w === word)
 
+      // Cria ripple effect TODA VEZ que incrementa
+      createRipple()
+
       // Se é a primeira vez que a palavra aparece, anima
       if (wordData && wordData[1] === 1) {
         const animationId = Date.now()
         setNewWordAnimations((current) => [...current, { word, id: animationId }])
-
-        // Cria ripple effect
-        createRipple()
 
         // Remove a animação após 1 segundo
         setTimeout(() => {
