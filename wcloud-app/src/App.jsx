@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useCallback } from "react"
 import WordCloud from "wordcloud"
 
 const availableWords = [
@@ -327,22 +327,32 @@ function CollapsibleWordBox({
   )
 }
 
-function LightParticles() {
+function InteractiveParticles({ mousePos, ripples }) {
   const [particles, setParticles] = useState([])
 
   useEffect(() => {
     // Cria apenas 6 partículas bem leves
-    const newParticles = Array.from({ length: 16 }, (_, i) => ({
+    const newParticles = Array.from({ length: 6 }, (_, i) => ({
       id: i,
       x: Math.random() * window.innerWidth,
       y: Math.random() * window.innerHeight,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
       size: Math.random() * 3 + 1,
       opacity: Math.random() * 0.3 + 0.1,
+      baseX: 0,
+      baseY: 0,
     }))
-    setParticles(newParticles)
 
+    newParticles.forEach((p) => {
+      p.baseX = p.x
+      p.baseY = p.y
+    })
+
+    setParticles(newParticles)
+  }, [])
+
+  useEffect(() => {
     const interval = setInterval(() => {
       setParticles((prev) =>
         prev.map((particle) => {
@@ -354,6 +364,26 @@ function LightParticles() {
           // Bounce nas bordas
           if (newX <= 0 || newX >= window.innerWidth) newVx *= -1
           if (newY <= 0 || newY >= window.innerHeight) newVy *= -1
+
+          // Atração sutil ao mouse/toque
+          if (mousePos.x > 0 && mousePos.y > 0) {
+            const dx = mousePos.x - newX
+            const dy = mousePos.y - newY
+            const distance = Math.sqrt(dx * dx + dy * dy)
+
+            if (distance < 200) {
+              const force = ((200 - distance) / 200) * 0.02
+              newVx += (dx / distance) * force
+              newVy += (dy / distance) * force
+            }
+          }
+
+          // Limita velocidade
+          const speed = Math.sqrt(newVx * newVx + newVy * newVy)
+          if (speed > 2) {
+            newVx = (newVx / speed) * 2
+            newVy = (newVy / speed) * 2
+          }
 
           return {
             ...particle,
@@ -367,7 +397,7 @@ function LightParticles() {
     }, 50) // 20 FPS bem leve
 
     return () => clearInterval(interval)
-  }, [])
+  }, [mousePos])
 
   return (
     <div
@@ -390,6 +420,27 @@ function LightParticles() {
             borderRadius: "50%",
             background: `rgba(0, 255, 136, ${particle.opacity})`,
             boxShadow: `0 0 ${particle.size * 2}px rgba(0, 255, 136, ${particle.opacity * 0.5})`,
+            transform: "translate(-50%, -50%)",
+            willChange: "transform",
+          }}
+        />
+      ))}
+
+      {/* Ripple effects */}
+      {ripples.map((ripple) => (
+        <div
+          key={ripple.id}
+          style={{
+            position: "absolute",
+            left: "50%",
+            top: "50%",
+            width: "20px",
+            height: "20px",
+            border: "2px solid rgba(0, 255, 136, 0.6)",
+            borderRadius: "50%",
+            transform: "translate(-50%, -50%)",
+            animation: "ripple 1s ease-out forwards",
+            pointerEvents: "none",
           }}
         />
       ))}
@@ -402,6 +453,10 @@ export default function App() {
   const [words, setWords] = useState(availableWords)
   const [isAnyBoxDragging, setIsAnyBoxDragging] = useState(false)
   const [lastWordCloudData, setLastWordCloudData] = useState("")
+  const [newWordAnimations, setNewWordAnimations] = useState([])
+  const [exitWordAnimations, setExitWordAnimations] = useState([])
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
+  const [ripples, setRipples] = useState([])
 
   // Posições das 4 caixas
   const [topBoxPos, setTopBoxPos] = useState({ x: 920, y: 20 })
@@ -409,13 +464,79 @@ export default function App() {
   const [leftBoxPos, setLeftBoxPos] = useState({ x: 220, y: 600 })
   const [rightBoxPos, setRightBoxPos] = useState({ x: window.innerWidth - 380, y: 600 })
 
-  const incrementWord = (word) => {
-    setWords((prev) => prev.map(([w, v]) => (w === word ? [w, v + 1] : [w, v])))
+  // Track mouse/touch position
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      setMousePos({ x: e.clientX, y: e.clientY })
+    }
+
+    const handleTouchMove = (e) => {
+      if (e.touches[0]) {
+        setMousePos({ x: e.touches[0].clientX, y: e.touches[0].clientY })
+      }
+    }
+
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("touchmove", handleTouchMove)
+
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("touchmove", handleTouchMove)
+    }
+  }, [])
+
+  const createRipple = () => {
+    const rippleId = Date.now()
+    setRipples((current) => [...current, { id: rippleId }])
+
+    setTimeout(() => {
+      setRipples((current) => current.filter((r) => r.id !== rippleId))
+    }, 1000)
   }
 
-  const decrementWord = (word) => {
-    setWords((prev) => prev.map(([w, v]) => (w === word ? [w, Math.max(0, v - 1)] : [w, v])))
-  }
+  const incrementWord = useCallback((word) => {
+    setWords((prev) => {
+      const newWords = prev.map(([w, v]) => (w === word ? [w, v + 1] : [w, v]))
+      const wordData = newWords.find(([w]) => w === word)
+
+      // Se é a primeira vez que a palavra aparece, anima
+      if (wordData && wordData[1] === 1) {
+        const animationId = Date.now()
+        setNewWordAnimations((current) => [...current, { word, id: animationId }])
+
+        // Cria ripple effect
+        createRipple()
+
+        // Remove a animação após 1 segundo
+        setTimeout(() => {
+          setNewWordAnimations((current) => current.filter((anim) => anim.id !== animationId))
+        }, 1000)
+      }
+
+      return newWords
+    })
+  }, [])
+
+  const decrementWord = useCallback((word) => {
+    setWords((prev) => {
+      const newWords = prev.map(([w, v]) => (w === word ? [w, Math.max(0, v - 1)] : [w, v]))
+      const wordData = newWords.find(([w]) => w === word)
+      const oldWordData = prev.find(([w]) => w === word)
+
+      // Se a palavra estava na nuvem e agora saiu (count chegou a 0)
+      if (oldWordData && oldWordData[1] > 0 && wordData && wordData[1] === 0) {
+        const animationId = Date.now()
+        setExitWordAnimations((current) => [...current, { word, id: animationId }])
+
+        // Remove a animação após 1 segundo
+        setTimeout(() => {
+          setExitWordAnimations((current) => current.filter((anim) => anim.id !== animationId))
+        }, 1000)
+      }
+
+      return newWords
+    })
+  }, [])
 
   // Filtra palavras com valor > 0 para o WordCloud
   const activeWords = words.filter(([word, count]) => count > 0)
@@ -430,6 +551,10 @@ export default function App() {
         setLastWordCloudData(currentData)
 
         if (activeWords.length > 0) {
+          // Limpa o canvas primeiro
+          const ctx = canvasRef.current.getContext("2d")
+          ctx.clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
+
           WordCloud(canvasRef.current, {
             list: activeWords,
             gridSize: 16,
@@ -439,8 +564,8 @@ export default function App() {
               const maxFontSize = 140
               return Math.min(base + Math.log2(size) * fator, maxFontSize)
             },
-            fontFamily: "Rawline, Arial, sans-serif", // SIM, Rawline está aqui!
-            color: () => {
+            fontFamily: "Rawline, Arial, sans-serif",
+            color: (word) => {
               const colors = ["#e8e8e8", "#d4d4d4", "#c0c0c0", "#f0f0f0", "#dcdcdc"]
               return colors[Math.floor(Math.random() * colors.length)]
             },
@@ -449,7 +574,7 @@ export default function App() {
             rotationSteps: 2,
             minRotation: -Math.PI / 6,
             maxRotation: Math.PI / 6,
-            shuffle: false, // Evita randomização
+            shuffle: false,
             drawOutOfBound: false,
             shrinkToFit: true,
           })
@@ -477,6 +602,58 @@ export default function App() {
             0%, 100% { opacity: 0.4; }
             50% { opacity: 0.8; }
           }
+          
+          @keyframes wordPop {
+            0% { 
+              transform: translate(-50%, -50%) scale(0) rotate(-10deg);
+              opacity: 0;
+            }
+            50% { 
+              transform: translate(-50%, -50%) scale(1.2) rotate(5deg);
+              opacity: 1;
+            }
+            100% { 
+              transform: translate(-50%, -50%) scale(0) rotate(10deg);
+              opacity: 0;
+            }
+          }
+
+          @keyframes wordExit {
+            0% { 
+              transform: translate(-50%, -50%) scale(1) rotate(0deg);
+              opacity: 1;
+            }
+            50% { 
+              transform: translate(-50%, -50%) scale(0.8) rotate(-15deg);
+              opacity: 0.5;
+            }
+            100% { 
+              transform: translate(-50%, -50%) scale(0) rotate(-30deg);
+              opacity: 0;
+            }
+          }
+
+          @keyframes backgroundBreathe {
+            0%, 100% { 
+              background-size: 100% 100%;
+              filter: brightness(1);
+            }
+            50% { 
+              background-size: 110% 110%;
+              filter: brightness(1.1);
+            }
+          }
+
+          @keyframes ripple {
+            0% {
+              transform: translate(-50%, -50%) scale(0);
+              opacity: 1;
+            }
+            100% {
+              transform: translate(-50%, -50%) scale(20);
+              opacity: 0;
+            }
+          }
         `,
         }}
       />
@@ -493,13 +670,14 @@ export default function App() {
             radial-gradient(circle at 80% 20%, rgba(0,204,255,0.1) 0%, transparent 50%),
             radial-gradient(circle at 40% 40%, rgba(255,107,107,0.05) 0%, transparent 50%)
           `,
+          animation: "backgroundBreathe 8s ease-in-out infinite",
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
         }}
       >
-        {/* Partículas leves */}
-        <LightParticles />
+        {/* Partículas interativas */}
+        <InteractiveParticles mousePos={mousePos} ripples={ripples} />
 
         {/* Canvas central */}
         <div style={{ position: "relative", zIndex: 10 }}>
@@ -512,6 +690,52 @@ export default function App() {
               filter: "drop-shadow(0 0 20px rgba(255,255,255,0.1))",
             }}
           />
+
+          {/* Overlay de animações para palavras novas */}
+          {newWordAnimations.map(({ word, id }) => (
+            <div
+              key={id}
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: "3rem",
+                fontWeight: "bold",
+                color: "#00ff88",
+                fontFamily: "Rawline, Arial, sans-serif",
+                pointerEvents: "none",
+                zIndex: 20,
+                textShadow: "0 0 20px rgba(0,255,136,0.8)",
+                animation: "wordPop 1s ease-out forwards",
+              }}
+            >
+              {word}
+            </div>
+          ))}
+
+          {/* Overlay de animações para palavras que saem */}
+          {exitWordAnimations.map(({ word, id }) => (
+            <div
+              key={id}
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: "3rem",
+                fontWeight: "bold",
+                color: "#ff4444",
+                fontFamily: "Rawline, Arial, sans-serif",
+                pointerEvents: "none",
+                zIndex: 20,
+                textShadow: "0 0 20px rgba(255,68,68,0.8)",
+                animation: "wordExit 1s ease-out forwards",
+              }}
+            >
+              {word}
+            </div>
+          ))}
 
           {/* Mensagem quando vazio */}
           {activeWords.length === 0 && (
